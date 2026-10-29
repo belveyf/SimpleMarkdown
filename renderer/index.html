@@ -85,13 +85,12 @@ body {
   user-select: none;
 }
 .topbar .brand {
-  display: inline-flex; align-items: center; justify-content: center;
+  display: block;
   width: 24px; height: 24px;
   border-radius: 7px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px; font-weight: 700; letter-spacing: -.4px;
+  object-fit: cover;
   flex: none;
+  -webkit-user-drag: none;
 }
 /* ===== 标签栏 ===== */
 .tabs {
@@ -895,7 +894,7 @@ body.is-scrolling::-webkit-scrollbar-thumb {
 <body>
 
 <div class="topbar">
-  <span class="brand" title="Simple Markdown">SMD</span>
+  <img class="brand" src="../icon.png" alt="Simple Markdown" title="Simple Markdown" draggable="false">
   <div class="tabs" id="tabs"></div>
   <button class="tab-add" id="btn-newtab" title="新建标签页（⌘T）">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
