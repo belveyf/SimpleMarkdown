@@ -1,0 +1,62 @@
+{
+  "name": "mdview",
+  "displayName": "M↓ Viewer",
+  "description": "用本地 M↓ Viewer 一键打开并美化渲染 Markdown 文件",
+  "version": "1.0.2",
+  "publisher": "belvey",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onCommand:mdview.open"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mdview.open",
+        "title": "用 M↓ Viewer 打开",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "mdview.open",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@9"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "mdview.open",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "mdview.open",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m",
+        "win": "ctrl+alt+m",
+        "linux": "ctrl+alt+m"
+      }
+    ],
+    "configuration": {
+      "title": "M↓ Viewer",
+      "properties": {
+        "mdview.appPath": {
+          "type": "string",
+          "default": "",
+          "description": "M↓ Viewer.app 的完整路径；留空则自动在 ~/Applications 与 /Applications 中查找"
+        }
+      }
+    }
+  }
+}

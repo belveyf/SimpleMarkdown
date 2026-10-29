@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# mdview —— Markdown 阅读入口（只启动桌面 App）
+#
+#   mdview                     # 打开 App（空界面，可拖文件进去）
+#   mdview file.md             # 用 App 打开文件（已在运行则加新标签）
+#   mdview --help              # 帮助
+set -euo pipefail
+
+# 解析脚本真实路径（兼容 ~/.local/bin 软链接）
+_SELF="${BASH_SOURCE[0]}"
+while [ -L "$_SELF" ]; do
+  _LINK="$(readlink "$_SELF")"
+  case "$_LINK" in
+    /*) _SELF="$_LINK" ;;
+    *)  _SELF="$(dirname "$_SELF")/$_LINK" ;;
+  esac
+done
+HERE="$(cd "$(dirname "$_SELF")/.." && pwd)"
+
+# App 位置（可用 MDVIEW_APP 覆盖）
+APP="${MDVIEW_APP:-}"
+if [ -z "$APP" ]; then
+  if [ -d "$HOME/Applications/MdViewer.app" ]; then
+    APP="$HOME/Applications/MdViewer.app"
+  elif [ -d "/Applications/MdViewer.app" ]; then
+    APP="/Applications/MdViewer.app"
+  elif [ -d "$HERE/dist/MdViewer-darwin-arm64/MdViewer.app" ]; then
+    APP="$HERE/dist/MdViewer-darwin-arm64/MdViewer.app"
+  fi
+fi
+
+for a in "$@"; do
+  case "$a" in
+    -h|--help)
+      awk 'NR>2 && /^#/ {sub(/^# ?/, ""); print; next} NR>2 && !/^#/ {exit}' "$_SELF"
+      exit 0
+      ;;
+  esac
+done
+
+if [ -z "$APP" ] || [ ! -x "$APP/Contents/MacOS/MdViewer" ]; then
+  echo "未找到 M↓ Viewer.app" >&2
+  echo "  一键安装: bash $HERE/install.sh" >&2
+  exit 1
+fi
+
+BIN="$APP/Contents/MacOS/MdViewer"
+ARGS=()
+for a in "$@"; do
+  case "$a" in
+    /*) ARGS+=("$a") ;;
+    *)  ARGS+=("$(cd "$(dirname "$a")" && pwd)/$(basename "$a")") ;;
+  esac
+done
+
+# 优先走系统启动（Dock / 前台激活正常）；失败回退直接执行
+if command -v open >/dev/null 2>&1; then
+  if [ ${#ARGS[@]} -gt 0 ] && open -a "$APP" "${ARGS[@]}" 2>/dev/null; then exit 0; fi
+  if [ ${#ARGS[@]} -eq 0 ] && open -a "$APP" 2>/dev/null; then exit 0; fi
+fi
+
+nohup "$BIN" ${ARGS[@]+"${ARGS[@]}"} >/dev/null 2>&1 &
+exit 0
