@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 隔离测试窗口：用源码直接跑一个独立实例，不碰已安装的 M↓ Viewer
+# 隔离测试窗口：用源码直接跑一个独立实例，不碰已安装的 Simple Markdown
 #
 # 特点：
 #   - 独立 userData 目录（不影响正式版窗口状态 / 查找历史等）
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_DIR="/tmp/mdview-isolated"
+STATE_DIR="/tmp/smd-isolated"
 PID_FILE="$STATE_DIR/test.pid"
 mkdir -p "$STATE_DIR"
 

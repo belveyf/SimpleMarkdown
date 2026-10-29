@@ -6,7 +6,7 @@
 
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
-contextBridge.exposeInMainWorld("mdviewApp", {
+contextBridge.exposeInMainWorld("smdApp", {
   /** 渲染就绪通知 */
   ready: () => ipcRenderer.send("renderer-ready"),
 

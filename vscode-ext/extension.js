@@ -11,20 +11,20 @@ const OPEN_BIN = "/usr/bin/open";
 /** 已安装 App 的候选位置（按优先级） */
 function installedAppCandidates() {
   return [
-    path.join(os.homedir(), "Applications", "MdViewer.app"),
-    "/Applications/MdViewer.app",
+    path.join(os.homedir(), "Applications", "SimpleMarkdown.app"),
+    "/Applications/SimpleMarkdown.app",
   ];
 }
 
 /**
  * 找出要调用的 App：
- *   1. 设置项 mdview.appPath 显式指定
- *   2. ~/Applications/MdViewer.app（install.sh 默认装这里）
- *   3. /Applications/MdViewer.app
+ *   1. 设置项 smd.appPath 显式指定
+ *   2. ~/Applications/SimpleMarkdown.app（install.sh 默认装这里）
+ *   3. /Applications/SimpleMarkdown.app
  */
 function resolveAppPath() {
   const configured = vscode.workspace
-    .getConfiguration("mdview")
+    .getConfiguration("smd")
     .get("appPath", "");
   if (typeof configured === "string" && configured.trim()) {
     return configured.trim();
@@ -39,7 +39,7 @@ function resolveAppPath() {
   return "";
 }
 
-/** 用系统 open 把文件交给已安装的 M↓ Viewer（resource 可能是菜单传来的 Uri） */
+/** 用系统 open 把文件交给已安装的 Simple Markdown（resource 可能是菜单传来的 Uri） */
 function openMdview(resource) {
   try {
     let file = resource && resource.fsPath;
@@ -47,19 +47,19 @@ function openMdview(resource) {
       file = vscode.window.activeTextEditor.document.uri.fsPath;
     }
     if (!file) {
-      vscode.window.showErrorMessage("M↓ Viewer：当前没有可打开的文件");
+      vscode.window.showErrorMessage("Simple Markdown：当前没有可打开的文件");
       return;
     }
     if (!/\.(md|markdown|mdown|mkd)$/i.test(file)) {
-      vscode.window.showWarningMessage("M↓ Viewer：该文件不是 Markdown（.md）文件");
+      vscode.window.showWarningMessage("Simple Markdown：该文件不是 Markdown（.md）文件");
       return;
     }
 
     const appPath = resolveAppPath();
     if (!appPath) {
       vscode.window.showErrorMessage(
-        "M↓ Viewer：没找到 MdViewer.app。请先在项目目录执行 bash install.sh 安装，" +
-          "或在设置 mdview.appPath 里填写 App 路径"
+        "Simple Markdown：没找到 SimpleMarkdown.app。请先在项目目录执行 bash install.sh 安装，" +
+          "或在设置 smd.appPath 里填写 App 路径"
       );
       return;
     }
@@ -73,20 +73,20 @@ function openMdview(resource) {
     });
     child.on("error", (err) => {
       vscode.window.showErrorMessage(
-        `M↓ Viewer 启动失败：${err.message}（可在设置 mdview.appPath 里修改 App 路径）`
+        `Simple Markdown 启动失败：${err.message}（可在设置 smd.appPath 里修改 App 路径）`
       );
     });
     child.on("exit", (code) => {
       if (code !== 0) {
         vscode.window.showErrorMessage(
-          `M↓ Viewer 启动失败（open 退出码 ${code}），请检查设置 mdview.appPath：${appPath}`
+          `Simple Markdown 启动失败（open 退出码 ${code}），请检查设置 smd.appPath：${appPath}`
         );
       }
     });
     child.unref();
   } catch (err) {
     // 任何意外异常都不能影响 VSCode 本身
-    vscode.window.showErrorMessage(`M↓ Viewer 出错：${err && err.message}`);
+    vscode.window.showErrorMessage(`Simple Markdown 出错：${err && err.message}`);
   }
 }
 
@@ -94,10 +94,10 @@ function openMdview(resource) {
 function activate(context) {
   try {
     context.subscriptions.push(
-      vscode.commands.registerCommand("mdview.open", openMdview)
+      vscode.commands.registerCommand("smd.open", openMdview)
     );
   } catch (err) {
-    console.error("[mdview] activate failed:", err);
+    console.error("[smd] activate failed:", err);
   }
 }
 

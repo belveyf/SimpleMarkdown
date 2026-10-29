@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * M↓ Viewer —— Electron 主进程
+ * Simple Markdown —— Electron 主进程
  *
  * 架构：单窗口 + 自绘标签页
  *   - 一个 BrowserWindow 承载多个文档，标签栏由渲染层自己画（样式完全可控）
@@ -14,7 +14,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 /* ================= 可关闭的启动日志 ================= */
-let DBG_PATH = "/tmp/mdview-boot.log";
+let DBG_PATH = "/tmp/smd-boot.log";
 try { DBG_PATH = path.join(app.getPath("userData"), "launch.log"); } catch { /* ignore */ }
 const DBG_ON = process.env.MDVIEW_DEBUG !== "0";
 function dbg(...a) {
@@ -67,7 +67,7 @@ function sendActiveDoc(keepScroll) {
   const d = docs.find((x) => x.id === activeId);
   if (!d) {
     win.webContents.send("doc", null);
-    win.setTitle("M↓ Viewer");
+    win.setTitle("Simple Markdown");
     return;
   }
   win.webContents.send("doc", {
@@ -77,7 +77,7 @@ function sendActiveDoc(keepScroll) {
     content: readFileSafe(d.path),
     keepScroll: !!keepScroll,
   });
-  win.setTitle(`${path.basename(d.path)} — M↓ Viewer`);
+  win.setTitle(`${path.basename(d.path)} — Simple Markdown`);
   try { win.setRepresentedFilename(d.path); } catch { /* ignore */ }
 }
 
@@ -284,9 +284,9 @@ function switchTab(dir) {
 function buildMenu() {
   const template = [
     {
-      label: "M↓ Viewer",
+      label: "Simple Markdown",
       submenu: [
-        { role: "about", label: "关于 M↓ Viewer" },
+        { role: "about", label: "关于 Simple Markdown" },
         { type: "separator" },
         { role: "hide", label: "隐藏" },
         { role: "hideOthers", label: "隐藏其他" },
@@ -313,12 +313,19 @@ function buildMenu() {
     {
       label: "编辑",
       submenu: [
+        // macOS 的 Cmd+C/V/X/Z 由应用菜单分发：菜单里必须有对应 role，
+        // 否则快捷键没有归宿，输入框里的粘贴 / 剪切 / 撤销都不生效。
+        { role: "undo", label: "撤销" },
+        { role: "redo", label: "重做" },
+        { type: "separator" },
+        { role: "cut", label: "剪切" },
+        { role: "copy", label: "复制" },
+        { role: "paste", label: "粘贴" },
+        { role: "selectAll", label: "全选" },
+        { type: "separator" },
         { label: "查找…", accelerator: "CmdOrCtrl+F", click: () => sendToRenderer("menu:find") },
         { label: "查找下一处", accelerator: "CmdOrCtrl+G", click: () => sendToRenderer("menu:find-next") },
         { label: "查找上一处", accelerator: "Shift+CmdOrCtrl+G", click: () => sendToRenderer("menu:find-prev") },
-        { type: "separator" },
-        { role: "copy", label: "复制" },
-        { role: "selectAll", label: "全选" },
       ],
     },
     {

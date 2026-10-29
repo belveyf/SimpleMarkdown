@@ -895,7 +895,7 @@ body.is-scrolling::-webkit-scrollbar-thumb {
 <body>
 
 <div class="topbar">
-  <span class="brand" title="M↓ Viewer">M↓</span>
+  <span class="brand" title="Simple Markdown">SMD</span>
   <div class="tabs" id="tabs"></div>
   <button class="tab-add" id="btn-newtab" title="新建标签页（⌘T）">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1087,7 +1087,7 @@ async function renderMarkdown(text, name, opts) {
   viewer.innerHTML = html;
   empty.hidden = true;
   viewer.hidden = false;
-  document.title = (name || "Markdown") + " — M↓ Viewer";
+  document.title = (name || "Markdown") + " — Simple Markdown";
 
   postProcess();
   buildToc();
@@ -1478,8 +1478,15 @@ window.addEventListener("drop", (e) => {
 /* 兜底：任何拖动结束都清掉提示层，避免遮罩卡住 */
 document.addEventListener("dragend", () => { window.__mdTabDrag = false; dragDepth = 0; document.body.classList.remove("dragging"); }, true);
 
-/* 粘贴文本 */
+/* 粘贴文本
+   ⚠️ 焦点在输入框 / 可编辑区域时（例如查找框），必须放行给浏览器默认行为：
+   否则 Cmd+V 会被这里拦掉，输入框收不到文字，反而把正文换成剪贴板内容。 */
+function pasteIntoEditable(e) {
+  const t = e.target;
+  return !!(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable));
+}
 window.addEventListener("paste", (e) => {
+  if (pasteIntoEditable(e)) return;
   const txt = e.clipboardData?.getData("text/plain");
   if (txt && txt.trim() && !e.clipboardData.files.length) {
     e.preventDefault();
@@ -1495,7 +1502,7 @@ document.getElementById("btn-print").onclick = () => window.print();
 const themeBtn = document.getElementById("btn-theme");
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
-  try { localStorage.setItem("mdview-theme", t); } catch (e) {}
+  try { localStorage.setItem("smd-theme", t); } catch (e) {}
   if (window.mermaid) {
     window.mermaid.initialize({
       startOnLoad: false, theme: t === "dark" ? "dark" : "neutral",
@@ -1508,7 +1515,7 @@ themeBtn.onclick = () =>
 
 (function initTheme() {
   let saved = null;
-  try { saved = localStorage.getItem("mdview-theme"); } catch (e) {}
+  try { saved = localStorage.getItem("smd-theme"); } catch (e) {}
   applyTheme(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
 })();
 
@@ -1522,7 +1529,7 @@ themeBtn.onclick = () =>
   const CLAMP = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
   /* --- 目录宽度拖动 --- */
-  let tocW = CLAMP(store.get("mdview-toc-w", 260), 180, 560);
+  let tocW = CLAMP(store.get("smd-toc-w", 260), 180, 560);
   root.style.setProperty("--toc-w", tocW + "px");
 
   const resizer = document.getElementById("toc-resizer");
@@ -1545,7 +1552,7 @@ themeBtn.onclick = () =>
     rz = null;
     resizer.classList.remove("dragging");
     root.classList.remove("toc-resizing");
-    store.set("mdview-toc-w", tocW);
+    store.set("smd-toc-w", tocW);
   };
   window.addEventListener("pointerup", endRz);
   window.addEventListener("pointercancel", endRz);
@@ -1557,8 +1564,8 @@ themeBtn.onclick = () =>
   const MIN_W = 380;
   const mainLeftOf = () => root.classList.contains("toc-hidden") ? 0 : tocW;
 
-  let wrapW = CLAMP(store.get("mdview-wrap-w", 880), MIN_W, 2000);
-  try { localStorage.removeItem("mdview-wrap-shift"); } catch (e) {}
+  let wrapW = CLAMP(store.get("smd-wrap-w", 880), MIN_W, 2000);
+  try { localStorage.removeItem("smd-wrap-shift"); } catch (e) {}
   root.style.setProperty("--wrap-w", wrapW + "px");
 
   let gd = null; // { side: "l"|"r", startX, startW }
@@ -1588,7 +1595,7 @@ themeBtn.onclick = () =>
     gripL.classList.remove("dragging");
     gripR.classList.remove("dragging");
     root.classList.remove("wrap-dragging");
-    store.set("mdview-wrap-w", wrapW);
+    store.set("smd-wrap-w", wrapW);
   };
   window.addEventListener("pointerup", endGd);
   window.addEventListener("pointercancel", endGd);
@@ -1597,7 +1604,7 @@ themeBtn.onclick = () =>
   const resetGd = () => {
     wrapW = 880;
     root.style.setProperty("--wrap-w", wrapW + "px");
-    store.set("mdview-wrap-w", wrapW);
+    store.set("smd-wrap-w", wrapW);
   };
   gripL.addEventListener("dblclick", resetGd);
   gripR.addEventListener("dblclick", resetGd);
@@ -1612,7 +1619,7 @@ themeBtn.onclick = () =>
 })();
 
 /* ================= 桌面 App 模式 ================= */
-const APP = window.mdviewApp || null;
+const APP = window.smdApp || null;
 
 /* ================= 标签栏（桌面版） ================= */
 const tabsEl = document.getElementById("tabs");
@@ -1902,7 +1909,7 @@ function showEmptyState() {
   const empty = document.getElementById("empty");
   if (viewer) { viewer.hidden = true; viewer.innerHTML = ""; }
   if (empty) empty.hidden = false;
-  document.title = "M↓ Viewer";
+  document.title = "Simple Markdown";
 }
 
 function installAppMode() {
@@ -1946,7 +1953,7 @@ function installAppMode() {
     const switchingTab = payload.id !== tabActiveId;
     if (switchingTab) { try { closeFind(); } catch (e) {} }
     await renderMarkdown(payload.content, payload.name, { keepScroll: payload.keepScroll });
-    if (payload.name) document.title = payload.name + " — M↓ Viewer";
+    if (payload.name) document.title = payload.name + " — Simple Markdown";
     // 切回某个标签时，恢复它上次的阅读位置
     if (switchingTab) {
       const saved = tabScrollMemory.get(payload.id) || 0;
@@ -1975,13 +1982,8 @@ function installAppMode() {
   });
 
   // 粘贴 Markdown 文本直接预览（不出磁盘）
-  window.addEventListener("paste", (e) => {
-    const txt = e.clipboardData && e.clipboardData.getData("text/plain");
-    if (txt && txt.trim() && !(e.clipboardData.files && e.clipboardData.files.length)) {
-      e.preventDefault();
-      renderMarkdown(txt, "粘贴的内容");
-    }
-  });
+  // 说明：带输入框判断的处理在页面顶层已经注册过，这里不再重复注册，
+  // 否则同一段文本会被渲染两次。
 
   bindFindEvents();
   APP.onFind(() => openFind());

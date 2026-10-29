@@ -1,8 +1,8 @@
 {
-  "name": "mdview",
-  "displayName": "M↓ Viewer",
-  "description": "用本地 M↓ Viewer 一键打开并美化渲染 Markdown 文件",
-  "version": "1.0.2",
+  "name": "smd",
+  "displayName": "Simple Markdown",
+  "description": "用本地 Simple Markdown 一键打开并美化渲染 Markdown 文件",
+  "version": "1.0.0",
   "publisher": "belvey",
   "license": "MIT",
   "engines": {
@@ -13,27 +13,27 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onCommand:mdview.open"
+    "onCommand:smd.open"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "mdview.open",
-        "title": "用 M↓ Viewer 打开",
+        "command": "smd.open",
+        "title": "用 Simple Markdown 打开",
         "icon": "$(open-preview)"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "mdview.open",
+          "command": "smd.open",
           "when": "resourceExtname == .md || resourceExtname == .markdown",
           "group": "navigation@9"
         }
       ],
       "editor/title": [
         {
-          "command": "mdview.open",
+          "command": "smd.open",
           "when": "resourceLangId == markdown",
           "group": "navigation"
         }
@@ -41,7 +41,7 @@
     },
     "keybindings": [
       {
-        "command": "mdview.open",
+        "command": "smd.open",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m",
         "win": "ctrl+alt+m",
@@ -49,12 +49,12 @@
       }
     ],
     "configuration": {
-      "title": "M↓ Viewer",
+      "title": "Simple Markdown",
       "properties": {
-        "mdview.appPath": {
+        "smd.appPath": {
           "type": "string",
           "default": "",
-          "description": "M↓ Viewer.app 的完整路径；留空则自动在 ~/Applications 与 /Applications 中查找"
+          "description": "Simple Markdown.app 的完整路径；留空则自动在 ~/Applications 与 /Applications 中查找"
         }
       }
     }

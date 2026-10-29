@@ -1,15 +1,15 @@
 {
-  "name": "mdviewer",
-  "productName": "M↓ Viewer",
-  "version": "1.1.0",
+  "name": "simple-markdown",
+  "productName": "Simple Markdown",
+  "version": "1.2.0",
   "description": "优雅的 Markdown 阅读器：自动刷新、代码高亮、公式、图表",
   "main": "main.js",
   "author": "belvey",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . MdViewer --platform=darwin --arch=arm64 --icon=MdViewer.icns --out=dist --overwrite --app-bundle-id=local.mdviewer --ignore=\"^/dist\" --ignore=\"^/node_modules/\\.cache\"",
-    "pack:x64": "electron-packager . MdViewer --platform=darwin --arch=x64 --out=dist --overwrite --app-bundle-id=local.mdviewer --ignore=\"^/dist\""
+    "pack": "electron-packager . SimpleMarkdown --platform=darwin --arch=arm64 --icon=SimpleMarkdown.icns --out=dist --overwrite --app-bundle-id=local.simplemarkdown --ignore=\"^/dist\" --ignore=\"^/node_modules\" --ignore=\"^/node_modules/\\.cache\"",
+    "pack:x64": "electron-packager . SimpleMarkdown --platform=darwin --arch=x64 --out=dist --overwrite --app-bundle-id=local.simplemarkdown --ignore=\"^/dist\" --ignore=\"^/node_modules\" --ignore=\"^/node_modules/\\.cache\""
   },
   "devDependencies": {
     "electron": "^33.0.0",

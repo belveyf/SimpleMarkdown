@@ -1,4 +1,4 @@
-# M↓ Viewer
+# Simple Markdown
 
 一个只管「把 Markdown 读舒服」的桌面阅读器。**界面尽量简单，打开之后，屏幕上只剩文档本身。** 文件保存后自动刷新，双击就能打开，不需要授权，也没有订阅。
 
@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/95a7948b-99e1-40f8-85c2-63ce94760b24
 
 ### macOS（Apple 芯片）
 
-到 [Releases](https://github.com/belveyf/mdview-app/releases) 下载 `MdViewer-*-mac-arm64.zip`，解压出 `MdViewer.app`，拖进「应用程序」即可。
+到 [Releases](https://github.com/belveyf/mdview-app/releases) 下载 `SimpleMarkdown-*-mac-arm64.zip`，解压出 `SimpleMarkdown.app`，拖进「应用程序」即可。
 
 首次打开若提示「无法验证开发者」，右键 → 打开，放行一次（应用没有做 Apple 公证）。
 
@@ -44,11 +44,11 @@ https://github.com/user-attachments/assets/95a7948b-99e1-40f8-85c2-63ce94760b24
 npm install
 
 # macOS（Intel）
-npx electron-packager . MdViewer --platform=darwin --arch=x64 --icon=MdViewer.icns
+npx electron-packager . SimpleMarkdown --platform=darwin --arch=x64 --icon=SimpleMarkdown.icns
 # Windows
-npx electron-packager . MdViewer --platform=win32 --arch=x64
+npx electron-packager . SimpleMarkdown --platform=win32 --arch=x64
 # Linux
-npx electron-packager . MdViewer --platform=linux --arch=x64
+npx electron-packager . SimpleMarkdown --platform=linux --arch=x64
 ```
 
 产物在 `dist/`。有三处需要按平台适配，这些都可以交给 AI 处理：
@@ -59,11 +59,11 @@ npx electron-packager . MdViewer --platform=linux --arch=x64
 
 ## 在 VSCode 里打开（可选）
 
-仓库里带了一个 VSCode 扩展：在文件列表里右键 `.md` → **用 M↓ Viewer 打开**，或者按 `Cmd+Alt+M`（Windows / Linux 用 `Ctrl+Alt+M`）。扩展会自动找到已安装的 App，把文件交给它；App 已经开着时，会在里面新开一个标签。
+仓库里带了一个 VSCode 扩展：在文件列表里右键 `.md` → **用 Simple Markdown 打开**，或者按 `Cmd+Alt+M`（Windows / Linux 用 `Ctrl+Alt+M`）。扩展会自动找到已安装的 App，把文件交给它；App 已经开着时，会在里面新开一个标签。
 
 安装方法：VSCode 打开命令面板（`Cmd+Shift+P`），执行 `Extensions: Install from VSIX`，选中 `vscode-ext/` 下的 `.vsix` 文件即可（也可以从 Releases 里下载）。
 
-App 如果不在默认位置，可以在设置里填 `mdview.appPath`；留空则自动在「应用程序」目录里找。
+App 如果不在默认位置，可以在设置里填 `smd.appPath`；留空则自动在「应用程序」目录里找。
 
 ## 想加功能，直接改
 
@@ -81,7 +81,7 @@ main.js              # 主进程：窗口、菜单、文件监听、标签管理
 preload.js           # 预加载：只向界面暴露需要的接口
 renderer/index.html  # 界面、标签栏、排版样式（单文件，无构建）
 renderer/vendor/     # markdown-it / highlight.js / KaTeX / Mermaid
-bin/mdview           # 命令行入口（mdview 文件.md）
+bin/smd           # 命令行入口（smd 文件.md）
 dev/isolated-run.sh  # 隔离测试：另开一个实例，不影响正在用的窗口
 vscode-ext/          # VSCode 扩展源码
 install.sh           # macOS 打包 + 安装脚本

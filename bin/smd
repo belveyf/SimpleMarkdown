@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# mdview —— Markdown 阅读入口（只启动桌面 App）
+# smd —— Markdown 阅读入口（只启动桌面 App）
 #
-#   mdview                     # 打开 App（空界面，可拖文件进去）
-#   mdview file.md             # 用 App 打开文件（已在运行则加新标签）
-#   mdview --help              # 帮助
+#   smd                     # 打开 App（空界面，可拖文件进去）
+#   smd file.md             # 用 App 打开文件（已在运行则加新标签）
+#   smd --help              # 帮助
 set -euo pipefail
 
 # 解析脚本真实路径（兼容 ~/.local/bin 软链接）
@@ -17,15 +17,15 @@ while [ -L "$_SELF" ]; do
 done
 HERE="$(cd "$(dirname "$_SELF")/.." && pwd)"
 
-# App 位置（可用 MDVIEW_APP 覆盖）
-APP="${MDVIEW_APP:-}"
+# App 位置（可用 SMD_APP 覆盖）
+APP="${SMD_APP:-}"
 if [ -z "$APP" ]; then
-  if [ -d "$HOME/Applications/MdViewer.app" ]; then
-    APP="$HOME/Applications/MdViewer.app"
-  elif [ -d "/Applications/MdViewer.app" ]; then
-    APP="/Applications/MdViewer.app"
-  elif [ -d "$HERE/dist/MdViewer-darwin-arm64/MdViewer.app" ]; then
-    APP="$HERE/dist/MdViewer-darwin-arm64/MdViewer.app"
+  if [ -d "$HOME/Applications/SimpleMarkdown.app" ]; then
+    APP="$HOME/Applications/SimpleMarkdown.app"
+  elif [ -d "/Applications/SimpleMarkdown.app" ]; then
+    APP="/Applications/SimpleMarkdown.app"
+  elif [ -d "$HERE/dist/SimpleMarkdown-darwin-arm64/SimpleMarkdown.app" ]; then
+    APP="$HERE/dist/SimpleMarkdown-darwin-arm64/SimpleMarkdown.app"
   fi
 fi
 
@@ -38,13 +38,13 @@ for a in "$@"; do
   esac
 done
 
-if [ -z "$APP" ] || [ ! -x "$APP/Contents/MacOS/MdViewer" ]; then
-  echo "未找到 M↓ Viewer.app" >&2
+if [ -z "$APP" ] || [ ! -x "$APP/Contents/MacOS/SimpleMarkdown" ]; then
+  echo "未找到 Simple Markdown.app" >&2
   echo "  一键安装: bash $HERE/install.sh" >&2
   exit 1
 fi
 
-BIN="$APP/Contents/MacOS/MdViewer"
+BIN="$APP/Contents/MacOS/SimpleMarkdown"
 ARGS=()
 for a in "$@"; do
   case "$a" in

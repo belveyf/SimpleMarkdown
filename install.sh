@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# M↓ Viewer 安装/更新脚本
+# Simple Markdown 安装/更新脚本
 #   - 打包 App（若需要）
 #   - 安装到 ~/Applications
 #   - 重新做 ad-hoc 签名（改过 Info.plist 后必须重签，否则 macOS 拒绝启动）
@@ -9,8 +9,8 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="$HOME/Applications/MdViewer.app"
-BUILD="$HERE/dist/MdViewer-darwin-arm64/MdViewer.app"
+DEST="$HOME/Applications/SimpleMarkdown.app"
+BUILD="$HERE/dist/SimpleMarkdown-darwin-arm64/SimpleMarkdown.app"
 LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 DO_BUILD=1
@@ -30,13 +30,13 @@ if [ "$DO_BUILD" = 1 ] || [ ! -d "$BUILD" ]; then
   echo "→ 打包 App…"
   cd "$HERE"
   ARCH="$(uname -m | sed 's/x86_64/x64/')"
-  env -u ELECTRON_RUN_AS_NODE npx electron-packager . MdViewer \
+  env -u ELECTRON_RUN_AS_NODE npx electron-packager . SimpleMarkdown \
     --platform=darwin --arch="$ARCH" \
     --out=dist --overwrite \
-    --app-bundle-id=local.mdviewer \
-    --icon=MdViewer.icns \
+    --app-bundle-id=local.simplemarkdown \
+    --icon=SimpleMarkdown.icns \
     --app-version="$(node -p "require('./package.json').version")" \
-    --ignore="^/dist" >/dev/null
+    --ignore="^/dist" --ignore="^/node_modules" >/dev/null
 fi
 
 # ---------- 3. 复制到 ~/Applications ----------
@@ -46,7 +46,7 @@ rm -rf "$DEST"
 cp -R "$BUILD" "$DEST"
 
 # ---------- 4. 设置显示名（不改 CFBundleName，否则找不到内部 Helper）----------
-plutil -replace CFBundleDisplayName -string "M↓ Viewer" "$DEST/Contents/Info.plist" 2>/dev/null || true
+plutil -replace CFBundleDisplayName -string "Simple Markdown" "$DEST/Contents/Info.plist" 2>/dev/null || true
 
 # ---------- 4.4 用启动壳包裹二进制：免疫 ELECTRON_RUN_AS_NODE 污染 ----------
 # 背景：系统「打开方式」/LaunchServices 启动时会把调用方的环境变量传进来。
@@ -54,16 +54,16 @@ plutil -replace CFBundleDisplayName -string "M↓ Viewer" "$DEST/Contents/Info.p
 # 本 App 会被当成纯 Node 运行 —— 表现为"点了没反应/闪一下就没了"。
 # 因此用一层 shell 壳先清掉该变量，再启动真正的 Electron 二进制。
 MACOS_DIR="$DEST/Contents/MacOS"
-if [ -f "$MACOS_DIR/MdViewer" ] && [ ! -f "$MACOS_DIR/MdViewer.real" ]; then
+if [ -f "$MACOS_DIR/SimpleMarkdown" ] && [ ! -f "$MACOS_DIR/SimpleMarkdown.real" ]; then
   echo "→ 安装启动壳（隔离 ELECTRON_RUN_AS_NODE 污染）"
-  mv "$MACOS_DIR/MdViewer" "$MACOS_DIR/MdViewer.real"
-  cat > "$MACOS_DIR/MdViewer" <<'SHELLWRAP'
+  mv "$MACOS_DIR/SimpleMarkdown" "$MACOS_DIR/SimpleMarkdown.real"
+  cat > "$MACOS_DIR/SimpleMarkdown" <<'SHELLWRAP'
 #!/bin/bash
 # 清掉可能被系统「打开方式」继承进来的环境变量
 unset ELECTRON_RUN_AS_NODE
-exec "$(dirname "$0")/MdViewer.real" "$@"
+exec "$(dirname "$0")/SimpleMarkdown.real" "$@"
 SHELLWRAP
-  chmod +x "$MACOS_DIR/MdViewer"
+  chmod +x "$MACOS_DIR/SimpleMarkdown"
 fi
 
 # ---------- 4.5 声明可打开的文档类型（让 Finder 把 .md 交给它）----------
@@ -98,6 +98,6 @@ echo ""
 echo "✓ 安装完成: $DEST"
 echo ""
 echo "用法："
-echo "  mdview 文件.md          # 命令行打开"
+echo "  smd 文件.md          # 命令行打开"
 echo "  双击 .md 文件            # 若首次被系统拦，右键 → 打开 一次即可"
-echo "  $DEST/Contents/MacOS/MdViewer 文件.md   # 直接启动（绕过系统拦截）"
+echo "  $DEST/Contents/MacOS/SimpleMarkdown 文件.md   # 直接启动（绕过系统拦截）"
