@@ -950,7 +950,7 @@ html[data-theme="dark"] #missing-banner { background: #3a2e1c; border-bottom-col
 <div id="missing-banner" hidden>
   <svg viewBox="0 0 24 24"><path d="M12 3 2.6 20h18.8z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.2" r=".9" fill="currentColor" stroke="none"/></svg>
   <span>文件已被删除：<b id="missing-name"></b></span>
-  <span class="missing-note">下面是最后一次读取到的内容</span>
+  <span class="missing-note">下面是最后一次读取到的内容；文件恢复后会自动重新加载</span>
 </div>
 
 <div id="toast" hidden></div>
@@ -1554,7 +1554,14 @@ function toast(msg) {
   el.textContent = msg;
   el.hidden = false;
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
+  toastTimer = setTimeout(() => { el.hidden = true; toastTimer = null; }, 2400);
+}
+
+/** 切换文档/标签时收起提示，避免提示跨文档残留 */
+function hideToast() {
+  const el = document.getElementById("toast");
+  if (el) el.hidden = true;
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
 }
 
 window.addEventListener("paste", (e) => {
@@ -1564,18 +1571,23 @@ window.addEventListener("paste", (e) => {
   if (e.clipboardData.files && e.clipboardData.files.length) return;
   e.preventDefault();
 
-  // 已打开文件：不允许粘贴覆盖，提示去空白页
+  const app = window.smdApp;
+  if (app && app.pasteMarkdown) {
+    // 由主进程判断当前是否空白页：文件视图会拒绝，避免误覆盖
+    app.pasteMarkdown(txt).then((res) => {
+      if (res && res.ok === false && res.reason === "file-view") {
+        toast("当前是文档视图，按 ⌘T 新建空白页后再粘贴");
+      }
+    }).catch(() => {});
+    return;
+  }
+
+  // 浏览器直接打开时的兜底（没有主进程）
   if (currentDocInfo && !currentDocInfo.blank) {
     toast("当前是文档视图，按 ⌘T 新建空白页后再粘贴");
     return;
   }
-
-  const app = window.smdApp;
-  if (app && app.pasteToBlank) {
-    app.pasteToBlank(txt);     // 主进程建/更新空白页，回传 doc 后渲染
-  } else {
-    renderMarkdown(txt, "粘贴的内容");   // 浏览器直开时的兜底
-  }
+  renderMarkdown(txt, "粘贴的内容");
 });
 
 /* ================= 顶栏按钮 ================= */
@@ -1990,10 +2002,15 @@ function bindTabsAreaDrop() {
 
 function showEmptyState() {
   setMissingBanner(null);
+  hideToast();
   const viewer = document.getElementById("viewer");
   const empty = document.getElementById("empty");
   if (viewer) { viewer.hidden = true; viewer.innerHTML = ""; }
   if (empty) empty.hidden = false;
+  // 空白页没有正文，目录要一起清掉，否则会留着上一篇的章节
+  const tocBody = document.getElementById("toc-body");
+  if (tocBody) tocBody.innerHTML = "";
+  tocLinks = [];
   document.title = "Simple Markdown";
 }
 
@@ -2034,6 +2051,7 @@ function installAppMode() {
 
   // 主进程推送文档：首次打开 / 切换标签 / 文件保存后自动刷新
   APP.onDoc(async (payload) => {
+    hideToast();
     if (!payload) { tabActiveId = null; currentDocInfo = null; showEmptyState(); return; }
     currentDocInfo = { id: payload.id, blank: !!payload.blank, missing: !!payload.missing, name: payload.name };
     const switchingTab = payload.id !== tabActiveId;

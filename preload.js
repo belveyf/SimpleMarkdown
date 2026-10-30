@@ -17,7 +17,8 @@ contextBridge.exposeInMainWorld("smdApp", {
   closeTab: (id) => ipcRenderer.send("tab:close", id),
   moveTab: (id, toIndex) => ipcRenderer.send("tab:move", { id, toIndex }),
   newBlankTab: () => ipcRenderer.send("tab:new-blank"),
-  pasteToBlank: (text) => ipcRenderer.send("tab:paste-blank", text),
+  /** 粘贴策略由主进程判断（避免渲染层状态滞后导致的时序竞争） */
+  pasteMarkdown: (text) => ipcRenderer.invoke("tab:paste", text),
 
   /** 菜单命令 */
   onToggleTheme: (cb) => ipcRenderer.on("menu:toggle-theme", () => cb()),
