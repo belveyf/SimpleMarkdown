@@ -920,6 +920,36 @@ html[data-theme="dark"] #missing-banner { background: #3a2e1c; border-bottom-col
   pointer-events: none;
 }
 #toast[hidden] { display: none; }
+
+/* ===== 标签右键菜单 ===== */
+#tab-menu {
+  position: fixed; z-index: 4000;
+  min-width: 178px;
+  padding: 5px;
+  border-radius: 9px;
+  background: var(--bg-float);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .16);
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+#tab-menu[hidden] { display: none; }
+#tab-menu .tm-item {
+  display: block; width: 100%;
+  padding: 6px 10px;
+  border: 0; border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit; font-size: 12.5px; line-height: 1.5;
+  text-align: left;
+  cursor: default;
+}
+#tab-menu .tm-item[hidden] { display: none; }
+#tab-menu .tm-item:hover { background: var(--accent); color: #fff; }
+#tab-menu .tm-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+#tab-menu .tm-sep[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -954,6 +984,14 @@ html[data-theme="dark"] #missing-banner { background: #3a2e1c; border-bottom-col
 </div>
 
 <div id="toast" hidden></div>
+
+<div id="tab-menu" hidden role="menu">
+  <button class="tm-item" data-act="reveal" role="menuitem">在 Finder 中显示</button>
+  <button class="tm-item" data-act="copy-path" role="menuitem">复制文件路径</button>
+  <button class="tm-item" data-act="copy-name" role="menuitem">复制文件名</button>
+  <div class="tm-sep"></div>
+  <button class="tm-item" data-act="close" role="menuitem">关闭标签页</button>
+</div>
 
 <div class="scroll-area" id="scroll-area">
 <div class="main">
@@ -1564,6 +1602,97 @@ function hideToast() {
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
 }
 
+/* ================= 标签右键菜单 ================= */
+let tabMenuTab = null;
+
+function closeTabMenu() {
+  const menu = document.getElementById("tab-menu");
+  if (menu) menu.hidden = true;
+  tabMenuTab = null;
+}
+
+function openTabMenu(t, x, y) {
+  const menu = document.getElementById("tab-menu");
+  if (!menu) return;
+  tabMenuTab = t;
+  const hasPath = !!(t.path && !t.blank);
+  menu.querySelectorAll('[data-act="reveal"], [data-act="copy-path"], [data-act="copy-name"]')
+    .forEach((b) => { b.hidden = !hasPath; });
+  const sep = menu.querySelector(".tm-sep");
+  if (sep) sep.hidden = !hasPath;
+
+  menu.hidden = false;
+  const r = menu.getBoundingClientRect();
+  let left = Math.min(x, window.innerWidth - r.width - 8);
+  let top = Math.min(y, window.innerHeight - r.height - 8);
+  menu.style.left = Math.max(8, left) + "px";
+  menu.style.top = Math.max(8, top) + "px";
+}
+
+/** 复制到剪贴板（优先 Clipboard API，失败退回 execCommand） */
+function copyText(text, okMsg) {
+  if (!text) return;
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) { /* ignore */ }
+    ta.remove();
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => toast(okMsg))
+        .catch(() => { fallback(); toast(okMsg); });
+    } else {
+      fallback();
+      toast(okMsg);
+    }
+  } catch (e) {
+    fallback();
+    toast(okMsg);
+  }
+}
+
+function bindTabMenu() {
+  const menu = document.getElementById("tab-menu");
+  if (!menu || menu.dataset.bound === "1") return;
+  menu.dataset.bound = "1";
+
+  menu.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tm-item");
+    if (!btn || btn.hidden) return;   // 防御：隐藏项（如空白页的路径项）不响应
+    const act = btn.dataset.act;
+    const t = tabMenuTab;
+    closeTabMenu();
+    if (!t) return;
+    if (act === "reveal") {
+      if (window.smdApp && window.smdApp.revealPath) window.smdApp.revealPath(t.path);
+    } else if (act === "copy-path") {
+      copyText(t.path, "已复制文件路径");
+    } else if (act === "copy-name") {
+      copyText(t.name, "已复制文件名");
+    } else if (act === "close") {
+      if (window.smdApp) window.smdApp.closeTab(t.id);
+    }
+  });
+
+  // 点外部 / Esc / 滚动 / 失焦 都收起
+  document.addEventListener("mousedown", (e) => {
+    const m = document.getElementById("tab-menu");
+    if (!m || m.hidden) return;
+    if (!m.contains(e.target)) closeTabMenu();
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeTabMenu();
+  }, true);
+  window.addEventListener("scroll", closeTabMenu, true);
+  window.addEventListener("blur", closeTabMenu);
+}
+
 window.addEventListener("paste", (e) => {
   if (pasteIntoEditable(e)) return;
   const txt = e.clipboardData?.getData("text/plain");
@@ -1768,6 +1897,12 @@ function renderTabs(tabs, activeId) {
     close.onclick = (e) => { e.stopPropagation(); APP.closeTab(t.id); };
     el.appendChild(close);
 
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!window.smdApp) return;
+      openTabMenu(t, e.clientX, e.clientY);
+    });
     el.onclick = () => { if (t.id !== tabActiveId) APP.activateTab(t.id); };
     el.onauxclick = (e) => { if (e.button === 1) APP.closeTab(t.id); };  // 中键关闭
     tabsEl.appendChild(el);
@@ -2003,6 +2138,7 @@ function bindTabsAreaDrop() {
 function showEmptyState() {
   setMissingBanner(null);
   hideToast();
+  closeTabMenu();
   const viewer = document.getElementById("viewer");
   const empty = document.getElementById("empty");
   if (viewer) { viewer.hidden = true; viewer.innerHTML = ""; }
@@ -2016,6 +2152,7 @@ function showEmptyState() {
 
 function installAppMode() {
   if (!APP) return;
+  bindTabMenu();
 
   // 顶栏按钮：新建标签页（打开文件） / 导出 PDF
   const openBtn = document.getElementById("btn-open");
@@ -2052,6 +2189,7 @@ function installAppMode() {
   // 主进程推送文档：首次打开 / 切换标签 / 文件保存后自动刷新
   APP.onDoc(async (payload) => {
     hideToast();
+    closeTabMenu();
     if (!payload) { tabActiveId = null; currentDocInfo = null; showEmptyState(); return; }
     currentDocInfo = { id: payload.id, blank: !!payload.blank, missing: !!payload.missing, name: payload.name };
     const switchingTab = payload.id !== tabActiveId;

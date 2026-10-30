@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld("smdApp", {
   exportPdf: () => ipcRenderer.invoke("export-pdf"),
   currentFile: () => ipcRenderer.invoke("current-file"),
   revealInFolder: () => ipcRenderer.invoke("reveal-in-folder"),
+  /** 在 Finder 中显示指定路径（文件不存在时打开所在目录） */
+  revealPath: (p) => ipcRenderer.invoke("reveal-path", p),
 
   /** 拖拽进来的文件取真实路径（Electron 30+ 用 webUtils） */
   pathForFile: (file) => {

@@ -36,7 +36,7 @@ if [ "$DO_BUILD" = 1 ] || [ ! -d "$BUILD" ]; then
     --app-bundle-id=local.simplemarkdown \
     --icon=SimpleMarkdown.icns \
     --app-version="$(node -p "require('./package.json').version")" \
-    --ignore="^/dist" --ignore="^/node_modules" >/dev/null
+    --ignore="^/dist" --ignore="^/node_modules" --ignore="^/AGENTS.md" >/dev/null
 fi
 
 # ---------- 3. 复制到 ~/Applications ----------

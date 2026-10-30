@@ -508,6 +508,25 @@ ipcMain.handle("reveal-in-folder", () => {
   if (d && d.path && fs.existsSync(d.path)) shell.showItemInFolder(d.path);
 });
 
+/** 在 Finder 中显示路径：文件在就选中它，文件没了两级都试着打开所在目录 */
+ipcMain.handle("reveal-path", (_e, p) => {
+  if (!p || typeof p !== "string") return { ok: false, reason: "no-path" };
+  try {
+    if (fs.existsSync(p)) {
+      shell.showItemInFolder(p);
+      return { ok: true, kind: "file" };
+    }
+    const dir = path.dirname(p);
+    if (fs.existsSync(dir)) {
+      shell.openPath(dir);
+      return { ok: true, kind: "dir" };
+    }
+  } catch (e) {
+    return { ok: false, reason: String(e && e.message) };
+  }
+  return { ok: false, reason: "missing" };
+});
+
 /* ================= 次实例交接 ================= */
 function fileFromArgv(argv) {
   for (const a of argv.slice(1)) {
