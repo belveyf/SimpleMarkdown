@@ -50,16 +50,39 @@ function saveState(bounds) {
 }
 function readFileSafe(p) {
   try { return fs.readFileSync(p, "utf8"); }
-  catch (e) { return `# 无法读取文件\n\n\`${p}\`\n\n${e.message}`; }
+  catch { return null; }
 }
 
 /* ================= 与渲染层通信 ================= */
+/** 标签显示名：普通文件用文件名，空白页用自身名字 */
+function docName(d) {
+  return d.blank ? (d.name || "空白页") : path.basename(d.path);
+}
+
 function sendTabs() {
   if (!win || win.isDestroyed()) return;
   win.webContents.send("tabs:list", {
-    tabs: docs.map((d) => ({ id: d.id, name: path.basename(d.path), path: d.path, dirty: !!d.dirty })),
+    tabs: docs.map((d) => ({
+      id: d.id,
+      name: docName(d),
+      path: d.path || "",
+      dirty: !!d.dirty,
+      blank: !!d.blank,
+      missing: !!d.missing,
+    })),
     activeId,
   });
+}
+
+/** 文件被删除：停止轮询，保留最后一次读到的内容，只做标记 */
+function markMissing(d) {
+  if (d.missing) return;
+  d.missing = true;
+  d.dirty = false;
+  unwatchDoc(d);
+  dbg("file missing:", d.path);
+  sendTabs();
+  if (d.id === activeId) sendActiveDoc(true);
 }
 
 function sendActiveDoc(keepScroll) {
@@ -70,22 +93,87 @@ function sendActiveDoc(keepScroll) {
     win.setTitle("Simple Markdown");
     return;
   }
+
+  // 空白页：内容只存在内存里，不落盘
+  if (d.blank) {
+    win.webContents.send("doc", {
+      id: d.id,
+      path: null,
+      name: docName(d),
+      content: d.text || "",
+      blank: true,
+      keepScroll: !!keepScroll,
+    });
+    win.setTitle(`${docName(d)} — Simple Markdown`);
+    return;
+  }
+
+  // 文件已被删除：不再读盘，发上次读到的内容 + 删除标记
+  if (d.missing) {
+    win.webContents.send("doc", {
+      id: d.id,
+      path: d.path,
+      name: docName(d),
+      content: d.lastText || "",
+      missing: true,
+      keepScroll: !!keepScroll,
+    });
+    win.setTitle(`${docName(d)} — Simple Markdown`);
+    return;
+  }
+
+  const text = readFileSafe(d.path);
+  if (text === null) { markMissing(d); return; }
+  d.lastText = text;
   win.webContents.send("doc", {
     id: d.id,
     path: d.path,
-    name: path.basename(d.path),
-    content: readFileSafe(d.path),
+    name: docName(d),
+    content: text,
     keepScroll: !!keepScroll,
   });
-  win.setTitle(`${path.basename(d.path)} — Simple Markdown`);
+  win.setTitle(`${docName(d)} — Simple Markdown`);
   try { win.setRepresentedFilename(d.path); } catch { /* ignore */ }
+}
+
+/* ================= 空白页 ================= */
+function addBlankDoc(name = "空白页", text = "") {
+  const d = { id: nextDocId++, path: null, dirty: false, blank: true, name, text };
+  docs.push(d);
+  activeId = d.id;
+  return d;
+}
+
+function createBlankTab() {
+  if (!win || win.isDestroyed()) createMainWindow();
+  addBlankDoc();
+  sendTabs();
+  sendActiveDoc(false);
+}
+
+/** 粘贴的 Markdown 文本放进空白页；当前是文件视图时由渲染层先拦住 */
+function pasteToBlank(text) {
+  const str = String(text || "");
+  if (!str.trim()) return;
+  let d = docs.find((x) => x.id === activeId);
+  if (!d || !d.blank) {
+    d = addBlankDoc("粘贴的内容", str);
+  } else {
+    d.text = str;
+    d.name = "粘贴的内容";
+  }
+  sendTabs();
+  sendActiveDoc(false);
 }
 
 /* ================= 文件监听 ================= */
 function watchDoc(d) {
+  if (!d.path) return;
   try { fs.unwatchFile(d.path); } catch { /* ignore */ }
   fs.watchFile(d.path, { interval: WATCH_INTERVAL }, (curr, prev) => {
     if (curr.mtimeMs === prev.mtimeMs && curr.size === prev.size) return;
+    // 文件被删除：停止刷新，保留内容并提示，不要清空
+    if (curr.nlink === 0 || !fs.existsSync(d.path)) { markMissing(d); return; }
     const old = watchTimers.get(d.path);
     if (old) clearTimeout(old);
     watchTimers.set(d.path, setTimeout(() => {
@@ -103,6 +191,7 @@ function watchDoc(d) {
 }
 
 function unwatchDoc(d) {
+  if (!d || !d.path) return;
   const t = watchTimers.get(d.path);
   if (t) { clearTimeout(t); watchTimers.delete(d.path); }
   try { fs.unwatchFile(d.path); } catch { /* ignore */ }
@@ -122,13 +211,18 @@ function openInTab(filePath) {
   if (existing) {
     activeId = existing.id;
     existing.dirty = false;
+    // 之前因文件被删停掉了刷新，文件回来后恢复监听
+    if (existing.missing && fs.existsSync(existing.path)) {
+      existing.missing = false;
+      watchDoc(existing);
+    }
     sendTabs();
     sendActiveDoc(false);
     win.focus();
     return;
   }
 
-  const d = { id: nextDocId++, path: abs, dirty: false };
+  const d = { id: nextDocId++, path: abs, dirty: false, blank: false, missing: false, lastText: null };
   docs.push(d);
   activeId = d.id;
   watchDoc(d);
@@ -168,6 +262,11 @@ function activateTab(id) {
   if (!d) return;
   activeId = d.id;
   d.dirty = false;
+  // 之前因文件被删停止刷新，若文件又回来了就恢复
+  if (d.missing && d.path && fs.existsSync(d.path)) {
+    d.missing = false;
+    watchDoc(d);
+  }
   sendTabs();
   sendActiveDoc(false);
 }
@@ -240,7 +339,7 @@ async function exportPdf() {
     dialog.showMessageBox(win || undefined, { type: "info", message: "请先打开一个 Markdown 文件" });
     return;
   }
-  const base = d.path.replace(MD_EXT, "");
+  const base = d.path ? d.path.replace(MD_EXT, "") : path.join(app.getPath("documents"), docName(d));
   const res = await dialog.showSaveDialog(win, {
     title: "导出 PDF",
     defaultPath: `${base}.pdf`,
@@ -297,7 +396,7 @@ function buildMenu() {
     {
       label: "文件",
       submenu: [
-        { label: "新建标签页…", accelerator: "CmdOrCtrl+T", click: () => showOpenDialog() },
+        { label: "新建空白标签页", accelerator: "CmdOrCtrl+T", click: () => createBlankTab() },
         { label: "打开…", accelerator: "CmdOrCtrl+O", click: () => showOpenDialog() },
         { type: "separator" },
         { label: "导出 PDF…", accelerator: "CmdOrCtrl+Shift+E", click: () => exportPdf() },
@@ -366,6 +465,8 @@ ipcMain.on("renderer-ready", () => {
 });
 
 ipcMain.on("tab:move", (_e, { id, toIndex }) => moveTab(id, toIndex));
+ipcMain.on("tab:new-blank", () => createBlankTab());
+ipcMain.on("tab:paste-blank", (_e, text) => pasteToBlank(text));
 ipcMain.on("tab:activate", (_e, id) => activateTab(id));
 ipcMain.on("tab:close", (_e, id) => closeTab(id));
 ipcMain.handle("open-dialog", () => showOpenDialog());
@@ -377,7 +478,7 @@ ipcMain.handle("current-file", () => {
 });
 ipcMain.handle("reveal-in-folder", () => {
   const d = docs.find((x) => x.id === activeId);
-  if (d) shell.showItemInFolder(d.path);
+  if (d && d.path && fs.existsSync(d.path)) shell.showItemInFolder(d.path);
 });
 
 /* ================= 次实例交接 ================= */

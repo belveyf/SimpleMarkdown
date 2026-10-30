@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld("smdApp", {
   activateTab: (id) => ipcRenderer.send("tab:activate", id),
   closeTab: (id) => ipcRenderer.send("tab:close", id),
   moveTab: (id, toIndex) => ipcRenderer.send("tab:move", { id, toIndex }),
+  newBlankTab: () => ipcRenderer.send("tab:new-blank"),
+  pasteToBlank: (text) => ipcRenderer.send("tab:paste-blank", text),
 
   /** 菜单命令 */
   onToggleTheme: (cb) => ipcRenderer.on("menu:toggle-theme", () => cb()),

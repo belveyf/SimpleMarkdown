@@ -889,6 +889,37 @@ body.is-scrolling::-webkit-scrollbar-thumb {
   word-break: break-all;
 }
 
+
+/* ===== 文件已删除提示条 ===== */
+#missing-banner {
+  flex: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  background: #fff4e5;
+  border-bottom: 1px solid #f0d9b5;
+  color: #8a5a1a;
+}
+#missing-banner[hidden] { display: none; }
+#missing-banner svg { width: 15px; height: 15px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#missing-banner b { font-weight: 600; }
+#missing-banner .missing-note { opacity: .72; }
+html[data-theme="dark"] #missing-banner { background: #3a2e1c; border-bottom-color: #57431f; color: #e8c88a; }
+
+/* ===== 轻提示（粘贴被拒绝等） ===== */
+#toast {
+  position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
+  z-index: 3000;
+  padding: 9px 15px;
+  border-radius: 8px;
+  background: rgba(30, 32, 36, .92);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .22);
+  pointer-events: none;
+}
+#toast[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -915,6 +946,14 @@ body.is-scrolling::-webkit-scrollbar-thumb {
     </button>
   </div>
 </div>
+
+<div id="missing-banner" hidden>
+  <svg viewBox="0 0 24 24"><path d="M12 3 2.6 20h18.8z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.2" r=".9" fill="currentColor" stroke="none"/></svg>
+  <span>文件已被删除：<b id="missing-name"></b></span>
+  <span class="missing-note">下面是最后一次读取到的内容</span>
+</div>
+
+<div id="toast" hidden></div>
 
 <div class="scroll-area" id="scroll-area">
 <div class="main">
@@ -1484,12 +1523,47 @@ function pasteIntoEditable(e) {
   const t = e.target;
   return !!(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable));
 }
+/** 当前正在看的文档（由主进程的 doc 事件维护） */
+let currentDocInfo = null;
+
+/** 页面顶部的「文件已删除」提示条 */
+function setMissingBanner(name) {
+  const bar = document.getElementById("missing-banner");
+  const nm = document.getElementById("missing-name");
+  if (!bar) return;
+  if (!name) { bar.hidden = true; return; }
+  if (nm) nm.textContent = name;
+  bar.hidden = false;
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
+}
+
 window.addEventListener("paste", (e) => {
   if (pasteIntoEditable(e)) return;
   const txt = e.clipboardData?.getData("text/plain");
-  if (txt && txt.trim() && !e.clipboardData.files.length) {
-    e.preventDefault();
-    renderMarkdown(txt, "粘贴的内容");
+  if (!txt || !txt.trim()) return;
+  if (e.clipboardData.files && e.clipboardData.files.length) return;
+  e.preventDefault();
+
+  // 已打开文件：不允许粘贴覆盖，提示去空白页
+  if (currentDocInfo && !currentDocInfo.blank) {
+    toast("当前是文档视图，按 ⌘T 新建空白页后再粘贴");
+    return;
+  }
+
+  const app = window.smdApp;
+  if (app && app.pasteToBlank) {
+    app.pasteToBlank(txt);     // 主进程建/更新空白页，回传 doc 后渲染
+  } else {
+    renderMarkdown(txt, "粘贴的内容");   // 浏览器直开时的兜底
   }
 });
 
@@ -1904,6 +1978,7 @@ function bindTabsAreaDrop() {
 }
 
 function showEmptyState() {
+  setMissingBanner(null);
   const viewer = document.getElementById("viewer");
   const empty = document.getElementById("empty");
   if (viewer) { viewer.hidden = true; viewer.innerHTML = ""; }
@@ -1918,7 +1993,7 @@ function installAppMode() {
   const openBtn = document.getElementById("btn-open");
   if (openBtn) openBtn.onclick = () => APP.openDialog();
   const newTabBtn = document.getElementById("btn-newtab");
-  if (newTabBtn) newTabBtn.onclick = () => APP.openDialog();
+  if (newTabBtn) newTabBtn.onclick = () => APP.newBlankTab();
 
   const openBtn2 = document.getElementById("btn-open2");
   if (openBtn2) openBtn2.onclick = () => APP.openDialog();
@@ -1948,10 +2023,21 @@ function installAppMode() {
 
   // 主进程推送文档：首次打开 / 切换标签 / 文件保存后自动刷新
   APP.onDoc(async (payload) => {
-    if (!payload) { tabActiveId = null; showEmptyState(); return; }
+    if (!payload) { tabActiveId = null; currentDocInfo = null; showEmptyState(); return; }
+    currentDocInfo = { id: payload.id, blank: !!payload.blank, missing: !!payload.missing, name: payload.name };
     const switchingTab = payload.id !== tabActiveId;
     if (switchingTab) { try { closeFind(); } catch (e) {} }
+
+    // 空白页且还没有内容：显示空状态（可以直接粘贴）
+    if (payload.blank && !payload.content) {
+      tabActiveId = payload.id;
+      showEmptyState();
+      document.title = payload.name + " — Simple Markdown";
+      return;
+    }
+
     await renderMarkdown(payload.content, payload.name, { keepScroll: payload.keepScroll });
+    setMissingBanner(payload.missing ? payload.name : null);
     if (payload.name) document.title = payload.name + " — Simple Markdown";
     // 切回某个标签时，恢复它上次的阅读位置
     if (switchingTab) {
