@@ -1531,9 +1531,20 @@ function setMissingBanner(name) {
   const bar = document.getElementById("missing-banner");
   const nm = document.getElementById("missing-name");
   if (!bar) return;
-  if (!name) { bar.hidden = true; return; }
+  if (!name) {
+    bar.hidden = true;
+    document.documentElement.style.setProperty("--topbar-h", "52px");
+    return;
+  }
   if (nm) nm.textContent = name;
   bar.hidden = false;
+  // 目录、宽度手柄、查找条都是 position:fixed 且按 --topbar-h 定位，
+  // 提示条出现后要把这个高度一起加上，否则会被目录侧栏盖住。
+  requestAnimationFrame(() => {
+    document.documentElement.style.setProperty(
+      "--topbar-h", (52 + bar.offsetHeight) + "px"
+    );
+  });
 }
 
 let toastTimer = null;
