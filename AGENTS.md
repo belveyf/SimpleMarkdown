@@ -63,13 +63,14 @@ bash install.sh --no-build                 # 用现成 dist 覆盖安装到 ~/Ap
 ### 打包与本地安装
 
 ```bash
-npm run pack                                  # -> dist/SimpleMarkdown-darwin-arm64/
-ditto -c -k --sequesterRsrc --keepParent \
-  dist/SimpleMarkdown-darwin-arm64/SimpleMarkdown.app \
-  dist/SimpleMarkdown-<ver>-mac-arm64.zip
+bash dev/package-release.sh                   # 发布用：打包→签名→验签→压 zip→反向验签
+bash dev/package-release.sh --no-build        # 复用 dist/ 产物，只做签名+压缩
+npm run pack                                  # 仅开发自用：dist/SimpleMarkdown-darwin-arm64/
 bash install.sh --no-build                    # 覆盖安装到 ~/Applications/SimpleMarkdown.app
 ```
 
+- **发布包只认 `dev/package-release.sh` 的产物**：npm 镜像装下来的 Electron 发行版本身不带 `Contents/_CodeSignature`，electron-packager 会原样继承；直接压出去的 App 在别人机器上会被 macOS 判为「已损坏，无法打开」（附带 `com.apple.quarantine` 时更是启动即被 SIGKILL）。脚本会补 ad-hoc 签名、验签、解压回验，任一步失败就退出，不会产出坏包。
+- 手动验包：`codesign --verify --deep --strict <app>` 必须通过，且 `Contents/_CodeSignature/CodeResources` 存在，zip 里也能 grep 到。
 - `install.sh` 会：复制 app → 改显示名 → 包一层清 `ELECTRON_RUN_AS_NODE` 的启动壳 → 声明 `.md` 文档类型 → ad-hoc 重签 → 注册 LaunchServices。**改过 app 内容必须重跑**，否则签名失效。
 - 从终端直接执行 app 内的二进制会继承 `ELECTRON_RUN_AS_NODE` 被当 Node 跑；验证启动请用 `open -a`（等同双击）或装好的带壳版本。
 
