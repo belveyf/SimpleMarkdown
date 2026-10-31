@@ -9,7 +9,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="$HOME/Applications/SimpleMarkdown.app"
+# 安装位置默认 ~/Applications；想装到系统「应用程序」目录可指定 SMD_DEST：
+#   SMD_DEST=/Applications/SimpleMarkdown.app bash install.sh --no-build
+DEST="${SMD_DEST:-$HOME/Applications/SimpleMarkdown.app}"
 BUILD="$HERE/dist/SimpleMarkdown-darwin-arm64/SimpleMarkdown.app"
 LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
@@ -39,9 +41,9 @@ if [ "$DO_BUILD" = 1 ] || [ ! -d "$BUILD" ]; then
     --ignore="^/dist" --ignore="^/node_modules" --ignore="^/AGENTS.md" >/dev/null
 fi
 
-# ---------- 3. 复制到 ~/Applications ----------
+# ---------- 3. 复制到安装位置 ----------
 echo "→ 安装到 $DEST"
-mkdir -p "$HOME/Applications"
+mkdir -p "$(dirname "$DEST")"
 rm -rf "$DEST"
 cp -R "$BUILD" "$DEST"
 
