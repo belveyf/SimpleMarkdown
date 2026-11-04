@@ -950,6 +950,42 @@ html[data-theme="dark"] #missing-banner { background: #3a2e1c; border-bottom-col
 #tab-menu .tm-item:hover { background: var(--accent); color: #fff; }
 #tab-menu .tm-sep { height: 1px; margin: 4px 6px; background: var(--border); }
 #tab-menu .tm-sep[hidden] { display: none; }
+
+/* ===== 空状态：选择文件按钮 ===== */
+#empty .empty-actions { margin: 20px 0 4px; display: flex; align-items: center; justify-content: center; }
+#empty .empty-hint { margin-top: 20px; }
+#empty .empty-features { margin-top: 26px; opacity: .65; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 8px 18px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 1.2;
+  cursor: default;
+  user-select: none;
+  transition: filter .15s ease, transform .06s ease, background .15s ease;
+}
+.btn svg {
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  flex: none;
+}
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(10, 124, 255, .22), 0 6px 18px rgba(10, 124, 255, .16);
+}
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.primary:active { transform: translateY(1px); filter: brightness(.95); }
+.btn.primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+html[data-theme="dark"] .btn.primary { color: #0d1117; box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3); }
 </style>
 </head>
 <body>
@@ -1006,9 +1042,14 @@ html[data-theme="dark"] #missing-banner { background: #3a2e1c; border-bottom-col
         </svg>
       </div>
       <h2>拖入 Markdown 文件开始阅读</h2>
-      <p>或 <button class="btn primary" id="btn-open2" style="vertical-align:middle">选择文件</button></p>
-      <p style="margin-top:18px">也可以把 Markdown 文本直接 <span class="kbd">⌘V</span> 粘贴进来</p>
-      <p style="margin-top:26px; opacity:.65">文件保存后会自动刷新 · 支持代码高亮 · 公式 · 图表</p>
+      <div class="empty-actions">
+        <button class="btn primary" id="btn-open2">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          选择文件
+        </button>
+      </div>
+      <p class="empty-hint">也可以按 <span class="kbd">⌘O</span> 打开文件，或把 Markdown 文本 <span class="kbd">⌘V</span> 粘贴进来</p>
+      <p class="empty-features">文件保存后会自动刷新 · 支持代码高亮 · 公式 · 图表</p>
     </div>
     <article id="viewer" hidden></article>
   </div>

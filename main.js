@@ -249,6 +249,24 @@ function openInTab(filePath) {
     return;
   }
 
+  // 当前活动标签是空白页时，直接把它变成这个文件的标签，不再新开一个
+  const cur = docs.find((x) => x.id === activeId);
+  if (cur && cur.blank) {
+    cur.path = abs;
+    cur.blank = false;
+    cur.name = undefined;
+    cur.text = undefined;
+    cur.lastText = null;
+    cur.missing = false;
+    cur.dirty = false;
+    watchDoc(cur);
+    dbg("blank -> file:", abs);
+    sendTabs();
+    sendActiveDoc(false);
+    win.focus();
+    return;
+  }
+
   const d = { id: nextDocId++, path: abs, dirty: false, blank: false, missing: false, lastText: null };
   docs.push(d);
   activeId = d.id;
