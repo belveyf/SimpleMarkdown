@@ -30,7 +30,7 @@ You can also open a blank page and paste Markdown text into it for a quick read 
 
 ### macOS (Apple silicon)
 
-Grab `SimpleMarkdown-*-mac-arm64.zip` from [Releases](https://github.com/belveyf/mdview-app/releases), unzip it, and drag `SimpleMarkdown.app` into the Applications folder.
+Grab `SimpleMarkdown-*-mac-arm64.zip` from [Releases](https://github.com/belveyf/SimpleMarkdown/releases), unzip it, and drag `SimpleMarkdown.app` into the Applications folder.
 
 If macOS says it cannot verify the developer on first launch, right-click → Open to allow it once (the app is not notarized by Apple).
 

@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/95a7948b-99e1-40f8-85c2-63ce94760b24
 
 ### macOS（Apple 芯片）
 
-到 [Releases](https://github.com/belveyf/mdview-app/releases) 下载 `SimpleMarkdown-*-mac-arm64.zip`，解压出 `SimpleMarkdown.app`，拖进「应用程序」即可。
+到 [Releases](https://github.com/belveyf/SimpleMarkdown/releases) 下载 `SimpleMarkdown-*-mac-arm64.zip`，解压出 `SimpleMarkdown.app`，拖进「应用程序」即可。
 
 首次打开若提示「无法验证开发者」，右键 → 打开，放行一次（应用没有做 Apple 公证）。
 
