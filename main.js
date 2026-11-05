@@ -615,8 +615,12 @@ if (!gotLock) {
     buildMenu();
     watchHandoff();
     createMainWindow();
-    const initial = pendingOpen.shift() || fileFromArgv(process.argv);
-    if (initial) openInTab(initial);
+    // 启动时可能一次进来多个文件（Finder 多选 / open -a 应用 a.md b.md）：
+    // 全部打开，之前只取第一个，后面的会被丢掉
+    const files = pendingOpen.splice(0, pendingOpen.length);
+    const fromArgv = fileFromArgv(process.argv);
+    if (fromArgv && !files.includes(fromArgv)) files.push(fromArgv);
+    files.forEach((f) => { try { openInTab(f); } catch (e) { dbg("open failed:", f, String(e)); } });
   });
 
   app.on("window-all-closed", () => app.quit());
