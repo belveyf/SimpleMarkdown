@@ -1890,6 +1890,7 @@ const APP = window.smdApp || null;
 /* ================= 标签栏（桌面版） ================= */
 const tabsEl = document.getElementById("tabs");
 const tabScrollMemory = new Map();   // 文档 id -> 上次滚动位置
+let lastDocId = null;                // 上一次真正渲染到界面上的文档 id（判断是否切换标签用）
 let tabActiveId = null;
 
 function renderTabs(tabs, activeId) {
@@ -1950,6 +1951,10 @@ function renderTabs(tabs, activeId) {
   }
 
   tabActiveId = activeId;
+  // 已关闭的标签不再占着阅读位置
+  for (const id of [...tabScrollMemory.keys()]) {
+    if (!tabs.some((t) => t.id === id)) tabScrollMemory.delete(id);
+  }
   bindTabsAreaDrop();
   bindTabTipDelegation();
 
@@ -2231,14 +2236,16 @@ function installAppMode() {
   APP.onDoc(async (payload) => {
     hideToast();
     closeTabMenu();
-    if (!payload) { tabActiveId = null; currentDocInfo = null; showEmptyState(); return; }
+    if (!payload) { tabActiveId = null; lastDocId = null; currentDocInfo = null; showEmptyState(); return; }
     currentDocInfo = { id: payload.id, blank: !!payload.blank, missing: !!payload.missing, name: payload.name };
-    const switchingTab = payload.id !== tabActiveId;
+    // 注意：不能用 tabActiveId 判断——标签栏消息先到，它已经被改成新标签了
+    const switchingTab = payload.id !== lastDocId;
     if (switchingTab) { try { closeFind(); } catch (e) {} }
 
     // 空白页且还没有内容：显示空状态（可以直接粘贴）
     if (payload.blank && !payload.content) {
       tabActiveId = payload.id;
+      lastDocId = payload.id;
       showEmptyState();
       document.title = payload.name + " — Simple Markdown";
       return;
@@ -2250,9 +2257,11 @@ function installAppMode() {
     // 切回某个标签时，恢复它上次的阅读位置
     if (switchingTab) {
       const saved = tabScrollMemory.get(payload.id) || 0;
-      const sc = scroller();
-      if (sc) sc.scrollTop = saved;
+      const apply = () => { const sc = scroller(); if (sc) sc.scrollTop = saved; };
+      apply();
+      if (saved > 0) requestAnimationFrame(apply);   // 图片/图表撑开高度后再兜一次
     }
+    lastDocId = payload.id;
   });
 
   // 拖拽文件进来即打开（含真实路径）；标签拖动时不动这套逻辑

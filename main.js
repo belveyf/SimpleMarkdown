@@ -17,6 +17,10 @@ const fs = require("node:fs");
 let DBG_PATH = "/tmp/smd-boot.log";
 try { DBG_PATH = path.join(app.getPath("userData"), "launch.log"); } catch { /* ignore */ }
 const DBG_ON = process.env.MDVIEW_DEBUG !== "0";
+
+// 自动化测试模式：窗口离屏 + 不可聚焦 + 不抢前台，避免干扰正在用电脑的人；正常启动完全不受影响
+// 用法：启动参数加 --smd-test，或环境变量 SMD_TEST=1
+const TEST_MODE = process.env.SMD_TEST === "1" || process.argv.includes("--smd-test");
 function dbg(...a) {
   if (!DBG_ON) return;
   try {
@@ -245,7 +249,7 @@ function openInTab(filePath) {
     }
     sendTabs();
     sendActiveDoc(false);
-    win.focus();
+    if (!TEST_MODE) win.focus();
     return;
   }
 
@@ -263,7 +267,7 @@ function openInTab(filePath) {
     dbg("blank -> file:", abs);
     sendTabs();
     sendActiveDoc(false);
-    win.focus();
+    if (!TEST_MODE) win.focus();
     return;
   }
 
@@ -282,12 +286,16 @@ function closeTab(id) {
   const [d] = docs.splice(i, 1);
   unwatchDoc(d);
   dbg("close tab:", d.path, "| left:", docs.length);
+  let activeChanged = false;
   if (activeId === d.id) {
     const next = docs[Math.min(i, docs.length - 1)];
     activeId = next ? next.id : null;
+    activeChanged = true;
   }
   sendTabs();
-  sendActiveDoc(false);
+  // 只有当前标签真的被关掉时才重发文档；关的是别的标签时正文没变，
+  // 重发会把当前文档的阅读位置重置到开头
+  if (activeChanged) sendActiveDoc(false);
 }
 
 /** 把标签移动到指定位置（拖动排序） */
@@ -322,8 +330,9 @@ function createMainWindow() {
   win = new BrowserWindow({
     width: st.width || 1200,
     height: st.height || 900,
-    x: typeof st.x === "number" ? st.x : undefined,
-    y: typeof st.y === "number" ? st.y : undefined,
+    x: TEST_MODE ? -4000 : (typeof st.x === "number" ? st.x : undefined),
+    y: TEST_MODE ? -4000 : (typeof st.y === "number" ? st.y : undefined),
+    focusable: !TEST_MODE,
     minWidth: 720,
     minHeight: 480,
     titleBarStyle: "hiddenInset",
@@ -338,8 +347,16 @@ function createMainWindow() {
     },
   });
 
+  if (TEST_MODE) win.setOpacity(0);   // 测试模式：窗口完全透明，肉眼不可见
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
-  win.once("ready-to-show", () => { win.show(); });
+  win.once("ready-to-show", () => {
+    if (TEST_MODE) {
+      try { win.setPosition(-4000, -4000); } catch (e) { /* ignore */ }
+      win.showInactive();
+    } else {
+      win.show();
+    }
+  });
   win.on("close", () => { try { saveState(win.getBounds()); } catch { /* ignore */ } });
   win.on("closed", () => {
     docs.forEach(unwatchDoc);
@@ -607,11 +624,12 @@ if (!gotLock) {
   app.on("second-instance", (_e, argv) => {
     const f = fileFromArgv(argv);
     if (f) openInTab(f);
-    if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+    if (win) { if (win.isMinimized()) win.restore(); if (!TEST_MODE) win.focus(); }
   });
 
   app.whenReady().then(() => {
     dbg("whenReady");
+    if (TEST_MODE && app.dock) { try { app.dock.hide(); } catch (e) { /* ignore */ } }
     buildMenu();
     watchHandoff();
     createMainWindow();
@@ -627,6 +645,6 @@ if (!gotLock) {
 
   app.on("activate", () => {
     if (!win) { createMainWindow(); sendTabs(); sendActiveDoc(false); }
-    else win.focus();
+    else if (!TEST_MODE) win.focus();
   });
 }

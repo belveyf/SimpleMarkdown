@@ -55,6 +55,7 @@ bash install.sh --no-build                 # 用现成 dist 覆盖安装到 ~/Ap
 - **布局耦合**：目录侧栏、宽度手柄、查找条是 `position:fixed`，靠 CSS 变量 `--topbar-h` 定位；任何在顶栏下面插固定/常驻元素（比如"文件已删除"提示条）都要同步改这个变量，否则会被目录盖住。
 - **打包**：`npm run pack` 会排除 `dist/` 与 `node_modules/`；electron-packager 会把提供的 icns 覆盖成 `Contents/Resources/electron.icns`，属正常现象。
 - **图标**：改图标要同时更新 `icon.png`（界面顶栏引用 `../icon.png`）和 `SimpleMarkdown.icns`（`iconutil` 从 1024 png 生成 iconset）。
+- **测试模式**：`main.js` 里 `TEST_MODE`（`--smd-test` 或 `SMD_TEST=1`）只影响窗口行为——窗口透明（opacity 0）、尝试离屏、`focusable: false`、`showInactive()`、跳过 `win.focus()`、隐藏 Dock；正常启动走原逻辑。改窗口相关代码时别破坏这个开关。
 
 ---
 
@@ -96,6 +97,9 @@ bash install.sh --no-build                    # 覆盖安装到 ~/Applications/S
 ### 谁测、怎么隔离
 
 - 需要独立视角时用 Agent Team，但**一个测试员负责全部测试任务**，不要按模块拆多个并发跑（并发容易把任务跑挂、也会互相抢实例/端口）。测试员命名建议 `app-tester`。
+- **测试实例必须用"测试模式"启动，禁止弹出可见窗口抢用户焦点**：启动参数加 `--smd-test`（或环境变量 `SMD_TEST=1`），窗口会变成"透明 + 离屏 + 不可聚焦 + 不激活应用"；正常启动不受影响。启动方式用后台执行二进制（`nohup ... &`），不要用 `open -a` 前台拉起。
+  - 现成工装：`/tmp/smd-test/launch.sh`（开发版）、`launch-packaged.sh`（打包版）已内置该模式，直接调用即可
+  - 自检：启动前后各取一次前台应用名（`osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`），必须不变；可选再用 CoreGraphics 查窗口 `alpha=0`
 - 每个场景用**独立实例**：独立 `--user-data-dir` + 独立 `--remote-debugging-port`（例如 9411–9430 顺序分配），**一次只开一个**，用完立刻停，避免端口/进程残留。
 - **不用 AppleScript / 系统级按键**（会抢用户焦点）。用 CDP 远程调试：
   - 执行 JS：`node cdp.js <ws> '<表达式>'`
