@@ -1643,6 +1643,28 @@ function hideToast() {
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
 }
 
+/* ================= 文档内链接 ================= */
+function bindDocLinks() {
+  const view = document.getElementById("viewer");
+  if (!view || view.dataset.linksBound === "1") return;
+  view.dataset.linksBound = "1";
+  view.addEventListener("click", (e) => {
+    const a = e.target.closest("a[href]");
+    if (!a) return;
+    const href = a.getAttribute("href");
+    if (!href) return;
+    if (href.startsWith("#")) return;          // 页内锚点交给浏览器滚动
+    e.preventDefault();
+    const app = window.smdApp;
+    if (!app || !app.openLink) return;
+    app.openLink(href).then((res) => {
+      if (!res || res.ok !== false) return;
+      if (res.reason === "missing") toast("链接指向的文件不存在：" + (res.path || href));
+      else toast("打不开这个链接：" + href);
+    }).catch(() => {});
+  });
+}
+
 /* ================= 标签右键菜单 ================= */
 let tabMenuTab = null;
 
@@ -2199,6 +2221,7 @@ function showEmptyState() {
 function installAppMode() {
   if (!APP) return;
   bindTabMenu();
+  bindDocLinks();
 
   // 顶栏按钮：新建标签页（打开文件） / 导出 PDF
   const openBtn = document.getElementById("btn-open");

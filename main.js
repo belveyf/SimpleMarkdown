@@ -12,6 +12,8 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
+const { fileURLToPath } = require("node:url");
 
 /* ================= 可关闭的启动日志 ================= */
 let DBG_PATH = "/tmp/smd-boot.log";
@@ -366,16 +368,28 @@ function createMainWindow() {
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) shell.openExternal(url);
+    if (TEST_MODE) dbg("test-mode: skip openExternal(window.open)", url);
+    else if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: "deny" };
   });
+  // 文档里的链接一律不在窗口内跳转（整页跳走会把界面冲掉、目标不存在会白屏）
   win.webContents.on("will-navigate", (e, url) => {
-    if (/^file:\/\//i.test(url)) return;
     e.preventDefault();
+    if (TEST_MODE) { dbg("test-mode: skip openExternal(navigate)", url); return; }
     if (/^https?:/i.test(url)) shell.openExternal(url);
   });
   win.webContents.on("render-process-gone", () => { if (win && !win.isDestroyed()) win.reload(); });
-  win.webContents.on("did-fail-load", (_e, code, desc) => dbg("did-fail-load", code, desc));
+  let recovering = false;
+  win.webContents.on("did-fail-load", (_e, code, desc, url, isMainFrame) => {
+    dbg("did-fail-load", code, desc, url);
+    const indexUrl = path.join(__dirname, "renderer", "index.html");
+    if (!recovering && isMainFrame && String(url || "").indexOf(indexUrl) === -1) {
+      // 万一窗口整页跳转失败了，把应用界面重新加载回来（renderer-ready 会恢复标签和当前文档）
+      recovering = true;
+      win.loadFile(indexUrl).catch(() => { /* ignore */ });
+      setTimeout(() => { recovering = false; }, 1500);
+    }
+  });
 
   return win;
 }
@@ -542,6 +556,45 @@ ipcMain.handle("reveal-in-folder", () => {
   const d = docs.find((x) => x.id === activeId);
   if (d && d.path && fs.existsSync(d.path)) shell.showItemInFolder(d.path);
 });
+
+/** 处理文档内的链接点击：外部链接交给系统，本地文件按当前文档目录解析后开标签 */
+async function openLink(href) {
+  const raw = String(href || "").trim();
+  if (!raw) return { ok: false, reason: "empty" };
+  if (raw.startsWith("#")) return { ok: true, anchor: true };
+  if (/^(https?|mailto|tel):/i.test(raw)) {
+    if (TEST_MODE) { dbg("test-mode: skip openExternal", raw); return { ok: true, external: true, skipped: true }; }
+    try { await shell.openExternal(raw); return { ok: true, external: true }; }
+    catch (e) { return { ok: false, reason: String(e && e.message) }; }
+  }
+  if (/^file:\/\//i.test(raw)) {
+    try { href = fileURLToPath(raw); } catch (e) { return { ok: false, reason: "bad-url" }; }
+  } else if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
+    return { ok: false, reason: "unsupported" };
+  } else {
+    href = raw;
+  }
+  const target = String(href).split("#")[0].split("?")[0];
+  if (!target) return { ok: true, anchor: true };
+  const cur = docs.find((x) => x.id === activeId);
+  const baseDir = cur && cur.path ? path.dirname(cur.path) : process.cwd();
+  let abs = target.replace(/^~(?=$|[\\/])/, os.homedir());
+  if (!path.isAbsolute(abs)) abs = path.resolve(baseDir, abs);
+  try {
+    if (!fs.existsSync(abs)) return { ok: false, reason: "missing", path: abs };
+    const st = fs.statSync(abs);
+    if (st.isDirectory()) {
+      if (!TEST_MODE) shell.openPath(abs);
+      return { ok: true, kind: "dir", path: abs, skipped: TEST_MODE };
+    }
+    if (/\.(md|markdown|mdown|mkd|mdx)$/i.test(abs)) { openInTab(abs); return { ok: true, kind: "tab", path: abs }; }
+    if (!TEST_MODE) shell.openPath(abs);
+    return { ok: true, kind: "external", path: abs, skipped: TEST_MODE };
+  } catch (e) {
+    return { ok: false, reason: String(e && e.message) };
+  }
+}
+ipcMain.handle("open-link", (_e, href) => openLink(href));
 
 /** 在 Finder 中显示路径：文件在就选中它，文件没了两级都试着打开所在目录 */
 ipcMain.handle("reveal-path", (_e, p) => {
